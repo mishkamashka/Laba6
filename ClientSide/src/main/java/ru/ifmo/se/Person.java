@@ -12,6 +12,7 @@ public abstract class Person implements Serializable, Comparable {
     private String name;
     private String last_name;
     private int age;
+    private int steps_from_door = 0;
 
     private List<GeneralClothes> generalClothes = new ArrayList<>();
     private List<Shoes> shoes = new ArrayList<>();
@@ -116,8 +117,9 @@ public abstract class Person implements Serializable, Comparable {
     public void describe() {
         StringBuilder tempString = new StringBuilder();
         tempString.append(this.toString());
+        tempString.append(" is");
         if (this.generalClothes !=null && (this.generalClothes.size() != 0 || this.shoes.size() != 0 || this.accessories.size() != 0)) {
-            tempString.append(" is wearing ");
+            tempString.append(" wearing ");
             tempString.append(this.getClothes(this.generalClothes));
         }
         if (this.shoes != null && this.shoes.size() != 0) {
@@ -128,6 +130,7 @@ public abstract class Person implements Serializable, Comparable {
             tempString.append(", ");
             tempString.append(this.getClothes(this.accessories));
         }
+        tempString.append(" standing in " + this.steps_from_door + " steps from the door");
         if (tempString.length() > this.toString().length())
             tempString.append(".");
         System.out.println(tempString.toString());
@@ -190,6 +193,19 @@ public abstract class Person implements Serializable, Comparable {
     }
 
     @Override
+    public int compareTo(Object o){
+        Person ob = (Person) o;
+        if (this.steps_from_door < ob.steps_from_door)
+            return 1;
+        else
+            if (this.steps_from_door > ob.steps_from_door)
+                return -1;
+            else
+                return 0;
+    }
+
+    // Good comparision.
+    /*@Override
     public int compareTo(Object o) {
         Person ob = (Person) o;
         if (this.name != null && this.name.compareTo(ob.getName()) > 0)
@@ -202,5 +218,5 @@ public abstract class Person implements Serializable, Comparable {
             return -1;
         else
             return 0;
-    }
+    }*/
 }

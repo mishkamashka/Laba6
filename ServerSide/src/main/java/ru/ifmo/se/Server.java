@@ -8,10 +8,7 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.net.*;
-import java.util.Collection;
-import java.util.Scanner;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 public class Server extends Thread {
     //Серверный модуль должен реализовывать все функции управления коллекцией
@@ -20,7 +17,7 @@ public class Server extends Thread {
 
     private Server() {
         try {
-            serverSocket = new ServerSocket(4718);
+            serverSocket = new ServerSocket(4718,1, InetAddress.getByName("localhost"));
             System.out.println(serverSocket.toString());
         } catch (Exception e) {
             e.printStackTrace();
@@ -49,13 +46,12 @@ class Connection extends Thread {
     private Socket client;
     private BufferedReader fromClient;
     private PrintStream toClient;
-    //private BufferedWriter toClient;
     private final String filename = System.getenv("FILENAME");
     private final String currentdir = "C:\\files";
     //private final String currentdir = System.getProperty("user.dir");
     private final String filepath = currentdir + "\\" + filename;
     //private final String filepath = currentdir + "/" + filename;
-    private Set<Person> collec = new TreeSet<>();
+    private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
     private File file = new File(filepath);
 
     Connection(Socket client){
@@ -108,8 +104,7 @@ class Connection extends Thread {
                         this.remove_greater(data);
                         break;
                     case "quit":
-                        System.out.println("Quit is made\n");
-                        //this.quit();
+                        this.quit();
                         break;
                     case "show":
                         this.showCollection();
@@ -122,7 +117,7 @@ class Connection extends Thread {
                                 "show - show the collection;\nquit - quit;\n");
                 }
             } catch (IOException e) {
-                System.out.println("Something is wrong with the connection, message can not be sent.");
+                System.out.println("Connection with the client is lost.");
                 e.printStackTrace();
                 toClient.close();
                 try {
@@ -131,9 +126,9 @@ class Connection extends Thread {
                 } catch (IOException ee){
                     System.out.println("Exception while trying to close.");
                 }
+                this.save();
                 return;
             }
-            //toClient.flush();
         }
     }
 
@@ -166,12 +161,12 @@ class Connection extends Thread {
         }
     }
 
-    /*
     private void quit() throws IOException {
-        this.save();
+        fromClient.close();
+        toClient.close();
         client.close();
+        System.out.println("Client has disconnected.");
     }
-    */
 
     private void remove_greater(String data) throws IOException {
         Person a = Connection.jsonToObject(data, Known.class);
@@ -182,8 +177,11 @@ class Connection extends Thread {
 
     private void addObject(String data) throws IOException {
         try {
-            this.collec.add(Connection.jsonToObject(data, Known.class));
-            toClient.println("Object " + Connection.jsonToObject(data, Known.class).toString() + " has been added.\n");
+            if ((Connection.jsonToObject(data, Known.class).getName() != null)) {
+                this.collec.add(Connection.jsonToObject(data, Known.class));
+                toClient.println("Object " + Connection.jsonToObject(data, Known.class).toString() + " has been added.\n");
+            }
+            else toClient.println("Object null can not be added.\n");
         } catch (NullPointerException | JsonSyntaxException e) {
             toClient.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.\n");
             System.out.println(e.toString());
@@ -248,6 +246,7 @@ class Connection extends Thread {
                 writer.write(Connection.objectToJson(person));
             }
             writer.close();
+            System.out.println("Collection has been saved.");
         } catch (IOException e) {
             System.out.println("Collection can not be saved.\nFile "+filename+" is not accessible: it does not exist or permission denied.");
             e.printStackTrace();
@@ -269,7 +268,7 @@ class Connection extends Thread {
             }
             this.toClient.println("\n");
         } catch (IOException e){
-            System.out.println("Can not write Collection into stream.");
+            System.out.println("Can not write collection into stream.");
         }
     }
 
