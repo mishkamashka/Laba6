@@ -92,7 +92,7 @@ class Connection extends Thread {
                     data = buf[1];
                 switch (command) {
                     case "start":
-                        //toClient.println("\n");
+                        toClient.println();
                         break;
                     case "clear":
                         this.clear();
@@ -156,7 +156,7 @@ class Connection extends Thread {
                     this.collec.add(Connection.jsonToObject(jsonObjectAsString, Known.class));
                 }
                 System.out.println("Connection has been loaded.");
-                toClient.println("Collection has been loaded.\n");
+                toClient.println("Collection has been loaded.");
             } catch (NullPointerException e) {
                 toClient.println("File is empty.");
             }

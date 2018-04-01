@@ -83,7 +83,8 @@ public class ClientApp {
                 this.collec.add(person);
             }
         } catch (IOException e) {
-            System.out.println("Collection can not be read from stream.");
+            //System.out.println("Collection can not be read from stream.");
+            //e.printStackTrace();
         } catch (ClassNotFoundException e){
             System.out.println("Class not found while deserializing.");
         }
