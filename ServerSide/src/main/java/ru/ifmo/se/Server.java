@@ -2,6 +2,7 @@ package ru.ifmo.se;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -80,16 +81,9 @@ class Connection extends Thread {
             System.out.println("Exception while trying to load collection.\n" + e.toString());
         }
         String[] buf;
-        //String from;
         while(true) {
             try {
-                //StringBuilder clientInput = new StringBuilder();
-                //while ((from = fromClient.readLine()) != null) {
-                //    clientInput.append(from);
-                //}
-                //System.out.println(fromClient.toString());
                 String clientInput = fromClient.readLine();
-                //String data = fromClient.readLine();
                 System.out.println("Command from client: " + clientInput);
                 buf = clientInput.split(" ");
                 String command = buf[0];
@@ -98,33 +92,34 @@ class Connection extends Thread {
                     data = buf[1];
                 switch (command) {
                     case "start":
+                        //toClient.println("\n");
                         break;
                     case "clear":
-                        toClient.println("Clear is made.");
-                        System.out.println("Clear is made.");
-                        //this.clear();
+                        this.clear();
                         break;
                     case "load":
                         this.load();
+                        toClient.println();
                         break;
                     case "add":
                         this.addObject(data);
                         break;
                     case "remove_greater":
-                        System.out.println("Remove greater is made.");
-                        //this.remove_greater(data);
+                        this.remove_greater(data);
                         break;
                     case "quit":
-                        System.out.println("Quit is made");
+                        System.out.println("Quit is made\n");
                         //this.quit();
                         break;
                     case "show":
                         this.showCollection();
+                        this.giveCollection();
+                        break;
                     default:
                         toClient.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
                                 "\nload - load the collection again;\nadd {element} - add new element to collection;" +
-                                "\nremove_greater {element} - remove elements greater than given;" +
-                                "\nquit - quit;\n");
+                                "\nremove_greater {element} - remove elements greater than given;\n" +
+                                "show - show the collection;\nquit - quit;\n");
                 }
             } catch (IOException e) {
                 System.out.println("Something is wrong with the connection, message can not be sent.");
@@ -138,6 +133,7 @@ class Connection extends Thread {
                 }
                 return;
             }
+            //toClient.flush();
         }
     }
 
@@ -179,6 +175,7 @@ class Connection extends Thread {
 
     private void remove_greater(String data) throws IOException {
         Person a = Connection.jsonToObject(data, Known.class);
+        System.out.println(a.toString());
         this.collec.removeIf(person -> a.compareTo(person) > 0);
         toClient.println("Objects greater than given have been removed.\n");
     }
@@ -187,9 +184,9 @@ class Connection extends Thread {
         try {
             this.collec.add(Connection.jsonToObject(data, Known.class));
             toClient.println("Object " + Connection.jsonToObject(data, Known.class).toString() + " has been added.\n");
-        } catch (NullPointerException e) {
+        } catch (NullPointerException | JsonSyntaxException e) {
             toClient.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.\n");
-            e.printStackTrace();
+            System.out.println(e.toString());
         }
     }
 
@@ -202,7 +199,7 @@ class Connection extends Thread {
         }
     }
 
-    private static <T> T jsonToObject(String tempString, Class<T> classT) {
+    private static <T> T jsonToObject(String tempString, Class<T> classT) throws JsonSyntaxException {
         RuntimeTypeAdapterFactory<GeneralClothes> genClothesAdapterFactory =
                 RuntimeTypeAdapterFactory.of(GeneralClothes.class, "type")
                         .registerSubtype(Shirt.class, "Shirt")
@@ -257,10 +254,30 @@ class Connection extends Thread {
         }
     }
 
+    public void giveCollection(){
+        final ObjectOutputStream toClient;
+        try {
+            toClient = new ObjectOutputStream(this.toClient);
+        } catch (IOException e){
+            System.out.println("Can not create ObjectOutputStream.");
+            return;
+        }
+        try {
+            //this.collec.forEach(person -> toClient.writeObject(person));
+            for (Person person: this.collec){
+                toClient.writeObject(person);
+            }
+            this.toClient.println("\n");
+        } catch (IOException e){
+            System.out.println("Can not write Collection into stream.");
+        }
+    }
+
     public void showCollection() {
         if (this.collec.isEmpty())
             System.out.println("Collection is empty.");
-        this.collec.forEach(person -> System.out.println(person.toString()));
-        System.out.println();
+        for (Person person : this.collec) {
+            System.out.println(person.toString());
+        }
     }
 }
