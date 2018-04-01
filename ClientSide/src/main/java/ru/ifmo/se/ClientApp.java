@@ -13,23 +13,24 @@ public class ClientApp {
 
     public static void main() {
         Socket clientSocket;
-        BufferedWriter toServer = null;
+        PrintStream toServer = null;
         BufferedReader fromServer = null;
         try {
             clientSocket = new Socket(InetAddress.getByName("localhost"), 4718);
-            toServer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+            toServer = new PrintStream(clientSocket.getOutputStream());
             fromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         }catch (IOException e){
             e.printStackTrace();
         }
 
         Scanner sc = new Scanner(System.in);
+        sc.useDelimiter("\n");
         while (true){
-
             String command = sc.next();
             switch (command){
                 case "show":
                     //this.show;
+                    toServer.println(command);
                     break;
                 case "describe_collection":
                     //this.describe;
@@ -39,15 +40,18 @@ public class ClientApp {
                     break;
                 default:
                     try{
-                        toServer.write(command);
-                        toServer.newLine();
-                    } catch (IOException e){
+                        toServer.println(command);
+                        //toServer.newLine();
+                    } catch (Exception e){
                         e.printStackTrace();
                     }
             }
             try{
-                String from = fromServer.readLine();
-                System.out.println(from);
+                String from;
+                while (!((from = fromServer.readLine()).equals(""))) {
+                    System.out.println(from);
+                }
+                System.out.println("End of getting from server.");
             } catch (IOException e){
                 e.printStackTrace();
             }

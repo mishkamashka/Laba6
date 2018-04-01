@@ -7,6 +7,7 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.net.*;
+import java.util.Collection;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeSet;
@@ -18,7 +19,7 @@ public class Server extends Thread {
 
     private Server() {
         try {
-            serverSocket = new ServerSocket(4718, 10, InetAddress.getByName("localhost"));
+            serverSocket = new ServerSocket(4718);
             System.out.println(serverSocket.toString());
         } catch (Exception e) {
             e.printStackTrace();
@@ -73,47 +74,70 @@ class Connection extends Thread {
         this.start();
     }
     public void run(){
-        try{
+        try {
             this.load();
-        } catch (IOException e){
-            System.out.println("Something is wrong with the connection, message can not be sent.");
-            e.printStackTrace();
+        } catch (IOException e) {
+            System.out.println("Exception while trying to load collection.\n" + e.toString());
         }
         String[] buf;
-        try{
-            while(true){
+        //String from;
+        while(true) {
+            try {
+                //StringBuilder clientInput = new StringBuilder();
+                //while ((from = fromClient.readLine()) != null) {
+                //    clientInput.append(from);
+                //}
+                //System.out.println(fromClient.toString());
                 String clientInput = fromClient.readLine();
+                //String data = fromClient.readLine();
+                System.out.println("Command from client: " + clientInput);
                 buf = clientInput.split(" ");
                 String command = buf[0];
                 String data = "";
-                if (buf.length > 2)
+                if (buf.length > 1)
                     data = buf[1];
                 switch (command) {
+                    case "start":
+                        break;
                     case "clear":
+                        toClient.println("Clear is made.");
+                        System.out.println("Clear is made.");
                         //this.clear();
                         break;
                     case "load":
                         this.load();
                         break;
                     case "add":
-                        //this.addObject(data);
+                        this.addObject(data);
                         break;
                     case "remove_greater":
+                        System.out.println("Remove greater is made.");
                         //this.remove_greater(data);
                         break;
                     case "quit":
+                        System.out.println("Quit is made");
                         //this.quit();
                         break;
+                    case "show":
+                        this.showCollection();
                     default:
-                        toClient.print("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
+                        toClient.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
                                 "\nload - load the collection again;\nadd {element} - add new element to collection;" +
                                 "\nremove_greater {element} - remove elements greater than given;" +
-                                "\nquit - quit;");
+                                "\nquit - quit;\n");
                 }
+            } catch (IOException e) {
+                System.out.println("Something is wrong with the connection, message can not be sent.");
+                e.printStackTrace();
+                toClient.close();
+                try {
+                    fromClient.close();
+                    client.close();
+                } catch (IOException ee){
+                    System.out.println("Exception while trying to close.");
+                }
+                return;
             }
-        } catch (IOException e){
-            System.out.println("Something is wrong with the connection, message can not be sent.");
-            e.printStackTrace();
         }
     }
 
@@ -136,13 +160,12 @@ class Connection extends Thread {
                     this.collec.add(Connection.jsonToObject(jsonObjectAsString, Known.class));
                 }
                 System.out.println("Connection has been loaded.");
-                toClient.println("Collection has been loaded.");
-                //toClient.newLine();
+                toClient.println("Collection has been loaded.\n");
             } catch (NullPointerException e) {
-                toClient.print("File is empty.");
+                toClient.println("File is empty.");
             }
         } catch (FileNotFoundException e) {
-            toClient.print("Collection can not be loaded.\nFile "+filename+" is not accessible: it does not exist or permission denied.");
+            toClient.println("Collection can not be loaded.\nFile "+filename+" is not accessible: it does not exist or permission denied.");
             e.printStackTrace();
         }
     }
@@ -152,27 +175,33 @@ class Connection extends Thread {
         this.save();
         client.close();
     }
+    */
 
     private void remove_greater(String data) throws IOException {
         Person a = Connection.jsonToObject(data, Known.class);
         this.collec.removeIf(person -> a.compareTo(person) > 0);
-        toClient.write("Objects greater than given have been removed.");
+        toClient.println("Objects greater than given have been removed.\n");
     }
 
     private void addObject(String data) throws IOException {
-        this.collec.add(Connection.jsonToObject(data, Known.class));
-        toClient.write("Object has been added.");
+        try {
+            this.collec.add(Connection.jsonToObject(data, Known.class));
+            toClient.println("Object " + Connection.jsonToObject(data, Known.class).toString() + " has been added.\n");
+        } catch (NullPointerException e) {
+            toClient.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.\n");
+            e.printStackTrace();
+        }
     }
 
     private void clear() throws IOException {
         if (collec.isEmpty())
-            toClient.write("There is nothing to remove, collection is empty.");
+            toClient.println("There is nothing to remove, collection is empty.\n");
         else {
             collec.clear();
-            toClient.write("Collection has been cleared.");
+            toClient.println("Collection has been cleared.\n");
         }
     }
-    */
+
     private static <T> T jsonToObject(String tempString, Class<T> classT) {
         RuntimeTypeAdapterFactory<GeneralClothes> genClothesAdapterFactory =
                 RuntimeTypeAdapterFactory.of(GeneralClothes.class, "type")
@@ -194,26 +223,32 @@ class Connection extends Thread {
         return gson.fromJson(tempString, classT);
     }
 
+    private static String objectToJson (Person person){
+        RuntimeTypeAdapterFactory<GeneralClothes> genClothesAdapterFactory = RuntimeTypeAdapterFactory.of(GeneralClothes.class, "type")
+                .registerSubtype(Shirt.class, "Shirt")
+                .registerSubtype(Jeans.class, "Jeans")
+                .registerSubtype(Jacket.class, "Jacket")
+                .registerSubtype(Trousers.class, "Trousers");
+        RuntimeTypeAdapterFactory<Shoes> shoesAdapterFactory = RuntimeTypeAdapterFactory.of(Shoes.class, "type")
+                .registerSubtype(Boots.class, "Shoes")
+                .registerSubtype(Trainers.class, "Trainers");
+        RuntimeTypeAdapterFactory<Accessories> accessoriesRuntimeTypeAdapterFactory = RuntimeTypeAdapterFactory.of(Accessories.class, "type")
+                .registerSubtype(Glasses.class, "Glassess")
+                .registerSubtype(Hat.class, "Hat");
+        Gson gson = new GsonBuilder()
+                .registerTypeAdapterFactory(genClothesAdapterFactory)
+                .registerTypeAdapterFactory(shoesAdapterFactory)
+                .registerTypeAdapterFactory(accessoriesRuntimeTypeAdapterFactory)
+                .create();
+        return gson.toJson(person);
+    }
+
     private void save(){
-        try (Writer writer = new FileWriter(file)) {
-            RuntimeTypeAdapterFactory<GeneralClothes> genClothesAdapterFactory = RuntimeTypeAdapterFactory.of(GeneralClothes.class, "type")
-                    .registerSubtype(Shirt.class, "Shirt")
-                    .registerSubtype(Jeans.class, "Jeans")
-                    .registerSubtype(Jacket.class, "Jacket")
-                    .registerSubtype(Trousers.class, "Trousers");
-            RuntimeTypeAdapterFactory<Shoes> shoesAdapterFactory = RuntimeTypeAdapterFactory.of(Shoes.class, "type")
-                    .registerSubtype(Boots.class, "Shoes")
-                    .registerSubtype(Trainers.class, "Trainers");
-            RuntimeTypeAdapterFactory<Accessories> accessoriesRuntimeTypeAdapterFactory = RuntimeTypeAdapterFactory.of(Accessories.class, "type")
-                    .registerSubtype(Glasses.class, "Glassess")
-                    .registerSubtype(Hat.class, "Hat");
-            Gson gson = new GsonBuilder()
-                    .registerTypeAdapterFactory(genClothesAdapterFactory)
-                    .registerTypeAdapterFactory(shoesAdapterFactory)
-                    .registerTypeAdapterFactory(accessoriesRuntimeTypeAdapterFactory)
-                    .create();
-            for (Person person : this.collec) {
-                writer.write(gson.toJson(person));
+        try {
+            Writer writer = new FileWriter(file);
+            //this.collec.forEach(person -> writer.write(Connection.objectToJson(person)));
+            for (Person person: this.collec){
+                writer.write(Connection.objectToJson(person));
             }
             writer.close();
         } catch (IOException e) {
@@ -222,4 +257,10 @@ class Connection extends Thread {
         }
     }
 
+    public void showCollection() {
+        if (this.collec.isEmpty())
+            System.out.println("Collection is empty.");
+        this.collec.forEach(person -> System.out.println(person.toString()));
+        System.out.println();
+    }
 }
