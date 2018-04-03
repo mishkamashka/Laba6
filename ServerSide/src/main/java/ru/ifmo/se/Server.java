@@ -9,11 +9,11 @@ import org.json.JSONObject;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Server extends Thread {
     //Серверный модуль должен реализовывать все функции управления коллекцией
     //в интерактивном режиме, кроме отображения текста в соответствии с сюжетом предметной области.
-
     private final String filename = System.getenv("FILENAME");
     private final String currentdir = "C:\\files";
     //private final String currentdir = System.getProperty("user.dir");
@@ -22,6 +22,7 @@ public class Server extends Thread {
     private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
     private File file = new File(filepath);
     private Scanner sc;
+    private ReentrantLock locker = new ReentrantLock();
 
     public void run() {
         ClientListening listener = new ClientListening(collec);
@@ -48,9 +49,10 @@ public class Server extends Thread {
                     break;
                 case "quit":
                     this.save();
+                    sc.close();
                     break;
                 default:
-                    System.out.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
+                    System.out.println("Not valid command. Try one of those:\nclear - clear the collection;" +
                             "\nload - load the collection again;\nadd {element} - add new element to collection;" +
                             "\nremove_greater {element} - remove elements greater than given;\n" +
                             "show - show the collection;\nquit - quit;\n");
@@ -63,6 +65,7 @@ public class Server extends Thread {
     }
 
     private void load() {
+        locker.lock();
         try (Scanner sc = new Scanner(file)) {
             StringBuilder tempString = new StringBuilder();
             tempString.append('[');
@@ -88,25 +91,31 @@ public class Server extends Thread {
             System.out.println("Collection can not be loaded.\nFile "+filename+" is not accessible: it does not exist or permission denied.");
             e.printStackTrace();
         }
+        locker.unlock();
     }
 
     private void clear() {
+        locker.lock();
         if (collec.isEmpty())
             System.out.println("There is nothing to remove, collection is empty.\n");
         else {
             collec.clear();
             System.out.println("Collection has been cleared.\n");
         }
+        locker.unlock();
     }
 
     private void remove_greater(String data) {
+        locker.lock();
         Person a = Server.jsonToObject(data, Known.class);
         System.out.println(a.toString());
         this.collec.removeIf(person -> a.compareTo(person) > 0);
         System.out.println("Objects greater than given have been removed.");
+        locker.unlock();
     }
 
     private void addObject(String data) {
+        locker.lock();
         try {
             this.collec.add(Server.jsonToObject(data, Known.class));
             System.out.println("Object has been added.");
@@ -114,6 +123,7 @@ public class Server extends Thread {
             System.out.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.");
             e.printStackTrace();
         }
+        locker.unlock();
     }
 
     private void showCollection() {
@@ -216,6 +226,7 @@ class Connection extends Thread {
     private BufferedReader fromClient;
     private PrintStream toClient;
     private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
+    ReentrantLock locker = new ReentrantLock();
 
     Connection(Socket client, SortedSet<Person> collec){
         this.collec = collec;
@@ -235,8 +246,9 @@ class Connection extends Thread {
         this.start();
     }
     public void run(){
-        toClient.println("You've connected to the server.\nUse command:\n" +
-                "\"show\" to see what's in th ecollection;\n\"describe\" to show the collection with descriptions.\n");
+        System.out.println("Client " + client.toString() + " has connected to server.");
+        toClient.println("You've connected to the server.\nUse commands:\n" +
+                "- \"show\" to see what's in the collection;\n- \"describe\" to show the collection with descriptions.\n");
         while(true) {
             try {
                 String command = fromClient.readLine();
@@ -244,9 +256,6 @@ class Connection extends Thread {
                 switch (command) {
                     case "start":
                         toClient.println("\n");
-                        break;
-                    case "quit":
-                        this.quit();
                         break;
                     case "show":
                         this.giveCollection();
@@ -257,10 +266,8 @@ class Connection extends Thread {
             } catch (IOException e) {
                 System.out.println("Connection with the client is lost.");
                 System.out.println(e.toString());
-                toClient.close();
                 try {
-                    fromClient.close();
-                    client.close();
+                    this.quit();
                 } catch (IOException ee){
                     System.out.println("Exception while trying to close.");
                 }

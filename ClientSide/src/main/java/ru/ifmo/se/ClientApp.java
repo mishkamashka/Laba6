@@ -11,7 +11,7 @@ public class ClientApp {
     //Клиентский модуль должен запрашивать у сервера текущее состояние коллекции,
     //генерировать сюжет, выводить его на консоль и завершать работу.
     private Set<Person> collec = new TreeSet<>();
-    private static SocketAddress clientSocket;
+    private static SocketAddress clientSocket = null;
     private static SocketChannel channel = null;
     private static DataInput fromServer;
     private static PrintStream toServer;
@@ -21,8 +21,26 @@ public class ClientApp {
         try {
             clientSocket = new InetSocketAddress(InetAddress.getByName("localhost"), 4718);
             channel = SocketChannel.open(clientSocket);
-        }catch (IOException e){
-            e.printStackTrace();
+        } catch (IOException e){
+            //e.printStackTrace();
+        }
+        int i = 0;
+        while (channel == null) {
+            try {
+                Thread.sleep(1000);
+                channel = SocketChannel.open(clientSocket);
+            } catch (IOException e) {
+                if (i++ == 5){
+                    System.out.println("Server is not responding for a long time...");
+                }
+                if (i == 15){
+                    System.out.println("Server did not respond for too long. Try again later.");
+                    System.exit(0);
+                }
+                //e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
         try {
             fromServer = new DataInputStream(channel.socket().getInputStream());
@@ -72,7 +90,9 @@ public class ClientApp {
                 }
                 //System.out.println("End of getting from server.");
             } catch (IOException e){
+                System.out.println("Server stopped responding.");
                 e.printStackTrace();
+                System.exit(0);
             }
         }
     }
@@ -81,7 +101,6 @@ public class ClientApp {
         ObjectInputStream fromClient;
         try{
             fromClient = new ObjectInputStream(channel.socket().getInputStream());
-            System.out.println("sdh");
         } catch (IOException e){
             System.out.println("Can not create ObjectInputStream.");
             return;
@@ -93,15 +112,10 @@ public class ClientApp {
             }
         } catch (IOException e) {
             // выход из цикла через исключение(да, я в курсе, что это нехоршо наверное, хз как по-другому)
-            //e.printStackTrace();
+            // e.printStackTrace();
         } catch (ClassNotFoundException e){
             System.out.println("Class not found while deserializing.");
         }
-        /*try{
-            fromClient.close();
-        } catch (IOException e){
-            System.out.println("Can not close stream");
-        }*/
     }
 
     private void showCollection() {
