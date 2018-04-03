@@ -12,20 +12,20 @@ import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Server extends Thread {
-    //Серверный модуль должен реализовывать все функции управления коллекцией
-    //в интерактивном режиме, кроме отображения текста в соответствии с сюжетом предметной области.
+    //Серверный модуль содержит внури себя два потока, один слушает запросы клиента на выдачу коллекци.
+    //Во стором крутится сканер, выполняется управление коллекцией напрямую с сервера.
     private final String filename = System.getenv("FILENAME");
     private final String currentdir = "C:\\files";
     //private final String currentdir = System.getProperty("user.dir");
     private final String filepath = currentdir + "\\" + filename;
     //private final String filepath = currentdir + "/" + filename;
-    private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
+    protected static SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
     private File file = new File(filepath);
     private Scanner sc;
     private ReentrantLock locker = new ReentrantLock();
 
     public void run() {
-        ClientListening listener = new ClientListening(collec);
+        ClientListening listener = new ClientListening();
         this.load();
         sc = new Scanner(System.in);
         while (true) {
@@ -81,7 +81,7 @@ public class Server extends Thread {
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject jsonObject = jsonArray.getJSONObject(i);
                     String jsonObjectAsString = jsonObject.toString();
-                    this.collec.add(Server.jsonToObject(jsonObjectAsString, Known.class));
+                    Server.collec.add(Server.jsonToObject(jsonObjectAsString, Known.class));
                 }
                 System.out.println("Connection has been loaded.");
             } catch (NullPointerException e) {
@@ -109,7 +109,7 @@ public class Server extends Thread {
         locker.lock();
         Person a = Server.jsonToObject(data, Known.class);
         System.out.println(a.toString());
-        this.collec.removeIf(person -> a.compareTo(person) > 0);
+        Server.collec.removeIf(person -> a.compareTo(person) > 0);
         System.out.println("Objects greater than given have been removed.");
         locker.unlock();
     }
@@ -117,7 +117,7 @@ public class Server extends Thread {
     private void addObject(String data) {
         locker.lock();
         try {
-            this.collec.add(Server.jsonToObject(data, Known.class));
+            Server.collec.add(Server.jsonToObject(data, Known.class));
             System.out.println("Object has been added.");
         }catch (Exception e) {
             System.out.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.");
@@ -127,9 +127,9 @@ public class Server extends Thread {
     }
 
     private void showCollection() {
-        if (this.collec.isEmpty())
+        if (Server.collec.isEmpty())
             System.out.println("Collection is empty.");
-        for (Person person : this.collec) {
+        for (Person person : Server.collec) {
             System.out.println(person.toString());
         }
     }
@@ -179,7 +179,7 @@ public class Server extends Thread {
         try {
             Writer writer = new FileWriter(file);
             //this.collec.forEach(person -> writer.write(Connection.objectToJson(person)));
-            for (Person person: this.collec){
+            for (Person person: Server.collec){
                 writer.write(Server.objectToJson(person));
             }
             writer.close();
@@ -193,10 +193,8 @@ public class Server extends Thread {
 
 class ClientListening extends Thread {
     private ServerSocket serverSocket;
-    private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
 
-    public ClientListening(SortedSet<Person> collec) {
-        this.collec = collec;
+    public ClientListening() {
         try {
             serverSocket = new ServerSocket(4718, 1, InetAddress.getByName("localhost"));
             System.out.println(serverSocket.toString());
@@ -212,7 +210,7 @@ class ClientListening extends Thread {
         while (true) {
             try {
                 Socket client = serverSocket.accept();
-                Connection connec = new Connection(client, collec);
+                Connection connec = new Connection(client);
             } catch (Exception e) {
                 System.out.println("Server is not listening.");
                 e.printStackTrace();
@@ -225,11 +223,9 @@ class Connection extends Thread {
     private Socket client;
     private BufferedReader fromClient;
     private PrintStream toClient;
-    private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
     ReentrantLock locker = new ReentrantLock();
 
-    Connection(Socket client, SortedSet<Person> collec){
-        this.collec = collec;
+    Connection(Socket client){
         this.client = client;
         try {
             fromClient = new BufferedReader(
@@ -293,7 +289,7 @@ class Connection extends Thread {
         }
         try {
             //this.collec.forEach(person -> toClient.writeObject(person));
-            for (Person person: this.collec){
+            for (Person person: Server.collec){
                 toClient.writeObject(person);
             }
             this.toClient.println("\n");
