@@ -1,5 +1,7 @@
 package ru.ifmo.se;
 
+import com.google.gson.JsonSyntaxException;
+
 import java.io.*;
 import java.net.*;
 import java.nio.channels.SocketChannel;
@@ -49,44 +51,68 @@ public class ClientApp {
             e.printStackTrace();
         }
         this.gettingResponse();
+        toServer.println("data_request");
+        this.clear();
+        this.load();
+        this.gettingResponse();
         sc = new Scanner(System.in);
-        sc.useDelimiter("\n");
-        while (true){
-            String command = sc.next();
-            switch (command){
+        String command;
+        String data = "";
+        while (true) {
+            command = sc.next();
+            if (sc.hasNext())
+                data = sc.next();
+            switch (command) {
+                case "load":
+                    toServer.println("data_request");
+                    this.load();
+                    break;
                 case "show":
-                    toServer.println(command);
                     this.show();
                     break;
                 case "describe":
-                    toServer.println("show");
                     this.describe();
+                    break;
+                case "add":
+                    this.addObject(data);
+                    break;
+                case "remove_greater":
+                    this.remove_greater(data);
+                    break;
+                case "clear":
+                    this.clear();
                     break;
                 case "help":
                     this.help();
                     break;
-                case "quit":
+                case "qw":
+                    toServer.println(command);
+                    this.gettingResponse();
+                    this.quit();
+                    break;
+                case "q":
                     toServer.println(command);
                     this.quit();
                     break;
                 default:
                     try{
                         toServer.println(command);
+                        this.gettingResponse();
                     } catch (Exception e){
                         e.printStackTrace();
                     }
             }
-            this.gettingResponse();
         }
     }
 
-    private void getCollection(){
-        ObjectInputStream fromClient = null;
+    private void load(){
+        final ObjectInputStream fromClient;
         try{
             fromClient = new ObjectInputStream(channel.socket().getInputStream());
         } catch (IOException e){
             System.out.println("Can not create ObjectInputStream.");
-            //return;
+            e.printStackTrace();
+            return;
         }
         Person person;
         try{
@@ -101,7 +127,7 @@ public class ClientApp {
         }
 
     }
-    private void showCollection() {
+    private void show() {
         if (this.collec.isEmpty())
             System.out.println("Collection is empty.");
         this.collec.forEach(person -> System.out.println(person.toString()));
@@ -109,22 +135,11 @@ public class ClientApp {
     }
 
     private void describe(){
-        this.clear();
-        this.getCollection();
         this.collec.forEach(person -> person.describe());
+        System.out.println();
     }
 
-    private void show(){
-        this.clear();
-        this.getCollection();
-        this.showCollection();
-    }
-
-    private void clear(){
-        collec.clear();
-    }
-
-    public void quit(){
+    private void quit(){
         sc.close();
         toServer.close();
         try {
@@ -148,11 +163,40 @@ public class ClientApp {
         }
     }
 
+    private void remove_greater(String data) {
+        Person a = JsonConverter.jsonToObject(data, Known.class);
+        System.out.println(a.toString());
+        this.collec.removeIf(person -> a.compareTo(person) > 0);
+        System.out.println("Objects greater than given have been removed.\n");
+    }
+
+    private void addObject(String data) {
+        try {
+            if ((JsonConverter.jsonToObject(data, Known.class).getName() != null)) {
+                this.collec.add(JsonConverter.jsonToObject(data, Known.class));
+                System.out.println("Object " + JsonConverter.jsonToObject(data, Known.class).toString() + " has been added.\n");
+            }
+            else System.out.println("Object null can not be added.");
+        } catch (NullPointerException | JsonSyntaxException e) {
+            System.out.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.\n");
+            System.out.println(e.toString());
+        }
+    }
+
+    private void clear() {
+        if (collec.isEmpty())
+            System.out.println("There is nothing to remove, collection is empty.\n");
+        else {
+            collec.clear();
+            System.out.println("Collection has been cleared.\n");
+        }
+    }
+
     private void help(){
         System.out.println("Commands:\nclear - clear the collection;\nload - load the collection again;" +
                 "\nshow - show the collection;\ndescribe - show the collection with descriptions;" +
                 "\nadd {element} - add new element to collection;\nremove_greater {element} - remove elements greater than given;" +
-                "\nquit - quit;\nhelp - get help;");
+                "\nsave - save changes;\nq - quit without saving;\nqw - save and quit;\nhelp - get help;");
         System.out.println("\nPattern for object Person input:\n{\"name\":\"Andy\",\"last_name\":\"Killins\",\"age\":45,\"steps_from_door\":0," +
                 "\"generalClothes\":[{\"type\":\"Jacket\",\"colour\":\"white\",\"patches\":[\"WHITE_PATCH\",\"BLACK_PATCH\"," +
                 "\"NONE\",\"NONE\",\"NONE\"],\"material\":\"NONE\"}],\"shoes\":[],\"accessories\":[],\"state\":\"NEUTRAL\"}");
