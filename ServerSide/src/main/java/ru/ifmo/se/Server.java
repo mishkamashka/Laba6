@@ -76,6 +76,8 @@ class Connection extends Thread {
         } catch (IOException e) {
             System.out.println("Exception while trying to load collection.\n" + e.toString());
         }
+        System.out.println("Client " + client.toString() + " has connected to server.");
+        toClient.println("You've connected to the server.\n");
         String[] buf;
         while(true) {
             try {
@@ -118,15 +120,15 @@ class Connection extends Thread {
                 }
             } catch (IOException e) {
                 System.out.println("Connection with the client is lost.");
-                e.printStackTrace();
-                toClient.close();
+                System.out.println(e.toString());
                 try {
                     fromClient.close();
+                    toClient.close();
                     client.close();
+                    System.out.println("Client has disconnected.");
                 } catch (IOException ee){
-                    System.out.println("Exception while trying to close.");
+                    System.out.println("Exception while trying to close client's streams.");
                 }
-                this.save();
                 return;
             }
         }
@@ -151,7 +153,7 @@ class Connection extends Thread {
                     this.collec.add(Connection.jsonToObject(jsonObjectAsString, Known.class));
                 }
                 System.out.println("Connection has been loaded.");
-                toClient.println("Collection has been loaded.");
+                //toClient.println("Collection has been loaded.\n");
             } catch (NullPointerException e) {
                 toClient.println("File is empty.");
             }
@@ -254,7 +256,7 @@ class Connection extends Thread {
     }
 
     public void giveCollection(){
-        final ObjectOutputStream toClient;
+        ObjectOutputStream toClient;
         try {
             toClient = new ObjectOutputStream(this.toClient);
         } catch (IOException e){

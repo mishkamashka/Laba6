@@ -21,8 +21,25 @@ public class ClientApp {
         try {
             clientSocket = new InetSocketAddress(InetAddress.getByName("localhost"), 4718);
             channel = SocketChannel.open(clientSocket);
-        }catch (IOException e){
-            e.printStackTrace();
+        } catch (IOException e){
+            //e.printStackTrace();
+        }
+        int i = 0;
+        while (channel == null) {
+            try {
+                Thread.sleep(1000);
+                channel = SocketChannel.open(clientSocket);
+            } catch (IOException e) {
+                if (i++ == 5){
+                    System.out.println("Server is not responding for a long time...");
+                }
+                if (i == 15){
+                    System.out.println("Server did not respond for too long. Try again later.");
+                    System.exit(0);
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
         try {
             fromServer = new DataInputStream(channel.socket().getInputStream());
@@ -31,6 +48,7 @@ public class ClientApp {
             System.out.println("Can not create DataInput or DataOutput stream.");
             e.printStackTrace();
         }
+        this.gettingResponse();
         sc = new Scanner(System.in);
         sc.useDelimiter("\n");
         while (true){
@@ -58,25 +76,17 @@ public class ClientApp {
                         e.printStackTrace();
                     }
             }
-            try{
-                String from;
-                while (!((from = fromServer.readLine()).equals(""))) {
-                    System.out.println(from);
-                }
-                System.out.println("End of getting from server.");
-            } catch (IOException e){
-                e.printStackTrace();
-            }
+            this.gettingResponse();
         }
     }
 
     private void getCollection(){
-        ObjectInputStream fromClient;
+        ObjectInputStream fromClient = null;
         try{
             fromClient = new ObjectInputStream(channel.socket().getInputStream());
         } catch (IOException e){
             System.out.println("Can not create ObjectInputStream.");
-            return;
+            //return;
         }
         Person person;
         try{
@@ -124,6 +134,18 @@ public class ClientApp {
             e.printStackTrace();
         }
         System.exit(0);
+    }
+
+    private void gettingResponse(){
+        try{
+            String from;
+            while (!((from = fromServer.readLine()).equals(""))) {
+                System.out.println(from);
+            }
+            System.out.println("End of getting from server.");
+        } catch (IOException e){
+            e.printStackTrace();
+        }
     }
 
     private void help(){
