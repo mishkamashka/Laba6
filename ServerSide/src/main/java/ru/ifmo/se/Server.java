@@ -13,39 +13,7 @@ import java.util.*;
 public class Server extends Thread {
     //Серверный модуль должен реализовывать все функции управления коллекцией
     //в интерактивном режиме, кроме отображения текста в соответствии с сюжетом предметной области.
-    private ServerSocket serverSocket;
 
-    private Server() {
-        try {
-            serverSocket = new ServerSocket(4718,1, InetAddress.getByName("localhost"));
-            System.out.println(serverSocket.toString());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        System.out.println("Server is now running.");
-        this.start();
-    }
-
-    public void run() {
-        try {
-            while (true) {
-                Socket client = serverSocket.accept();
-                Connection connec = new Connection(client);
-            }
-        } catch (Exception e) {
-            System.out.println("Server is not listening.");
-            e.printStackTrace();
-        }
-    }
-    public static void main(){
-        new Server();
-    }
-}
-
-class Connection extends Thread {
-    private Socket client;
-    private BufferedReader fromClient;
-    private PrintStream toClient;
     private final String filename = System.getenv("FILENAME");
     private final String currentdir = "C:\\files";
     //private final String currentdir = System.getProperty("user.dir");
@@ -53,86 +21,48 @@ class Connection extends Thread {
     //private final String filepath = currentdir + "/" + filename;
     private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
     private File file = new File(filepath);
+    private Scanner sc;
 
-    Connection(Socket client){
-        this.client = client;
-        try {
-            fromClient = new BufferedReader(
-                    new InputStreamReader(client.getInputStream()));
-            toClient = new PrintStream(client.getOutputStream());
-        } catch (IOException e){
-            try{
-                client.close();
-            }catch (IOException ee){
-                ee.printStackTrace();
-            }
-            e.printStackTrace();
-        }
-        this.start();
-    }
-    public void run(){
-        try {
-            this.load();
-        } catch (IOException e) {
-            System.out.println("Exception while trying to load collection.\n" + e.toString());
-        }
-        String[] buf;
-        while(true) {
-            try {
-                String clientInput = fromClient.readLine();
-                System.out.println("Command from client: " + clientInput);
-                buf = clientInput.split(" ");
-                String command = buf[0];
-                String data = "";
-                if (buf.length > 1)
-                    data = buf[1];
-                switch (command) {
-                    case "start":
-                        toClient.println();
-                        break;
-                    case "clear":
-                        this.clear();
-                        break;
-                    case "load":
-                        this.load();
-                        toClient.println();
-                        break;
-                    case "add":
-                        this.addObject(data);
-                        break;
-                    case "remove_greater":
-                        this.remove_greater(data);
-                        break;
-                    case "quit":
-                        this.quit();
-                        break;
-                    case "show":
-                        this.showCollection();
-                        this.giveCollection();
-                        break;
-                    default:
-                        toClient.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
-                                "\nload - load the collection again;\nadd {element} - add new element to collection;" +
-                                "\nremove_greater {element} - remove elements greater than given;\n" +
-                                "show - show the collection;\nquit - quit;\n");
-                }
-            } catch (IOException e) {
-                System.out.println("Connection with the client is lost.");
-                e.printStackTrace();
-                toClient.close();
-                try {
-                    fromClient.close();
-                    client.close();
-                } catch (IOException ee){
-                    System.out.println("Exception while trying to close.");
-                }
-                this.save();
-                return;
+    public void run() {
+        ClientListening listener = new ClientListening(collec);
+        this.load();
+        sc = new Scanner(System.in);
+        while (true) {
+            String localcommand = sc.next();
+            String data = sc.next();
+            switch (localcommand) {
+                case "clear":
+                    this.clear();
+                    break;
+                case "load":
+                    this.load();
+                    break;
+                case "add":
+                    this.addObject(data);
+                    break;
+                case "show":
+                    this.showCollection();
+                    break;
+                case "remove_greater":
+                    this.remove_greater(data);
+                    break;
+                case "quit":
+                    this.save();
+                    break;
+                default:
+                    System.out.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
+                            "\nload - load the collection again;\nadd {element} - add new element to collection;" +
+                            "\nremove_greater {element} - remove elements greater than given;\n" +
+                            "show - show the collection;\nquit - quit;\n");
             }
         }
     }
 
-    private void load() throws IOException {
+    public static void main(){
+        new Server();
+    }
+
+    private void load() {
         try (Scanner sc = new Scanner(file)) {
             StringBuilder tempString = new StringBuilder();
             tempString.append('[');
@@ -148,52 +78,49 @@ class Connection extends Thread {
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject jsonObject = jsonArray.getJSONObject(i);
                     String jsonObjectAsString = jsonObject.toString();
-                    this.collec.add(Connection.jsonToObject(jsonObjectAsString, Known.class));
+                    this.collec.add(Server.jsonToObject(jsonObjectAsString, Known.class));
                 }
                 System.out.println("Connection has been loaded.");
-                toClient.println("Collection has been loaded.");
             } catch (NullPointerException e) {
-                toClient.println("File is empty.");
+                System.out.println("File is empty.");
             }
         } catch (FileNotFoundException e) {
-            toClient.println("Collection can not be loaded.\nFile "+filename+" is not accessible: it does not exist or permission denied.");
+            System.out.println("Collection can not be loaded.\nFile "+filename+" is not accessible: it does not exist or permission denied.");
             e.printStackTrace();
         }
     }
 
-    private void quit() throws IOException {
-        fromClient.close();
-        toClient.close();
-        client.close();
-        System.out.println("Client has disconnected.");
-    }
-
-    private void remove_greater(String data) throws IOException {
-        Person a = Connection.jsonToObject(data, Known.class);
-        System.out.println(a.toString());
-        this.collec.removeIf(person -> a.compareTo(person) > 0);
-        toClient.println("Objects greater than given have been removed.\n");
-    }
-
-    private void addObject(String data) throws IOException {
-        try {
-            if ((Connection.jsonToObject(data, Known.class).getName() != null)) {
-                this.collec.add(Connection.jsonToObject(data, Known.class));
-                toClient.println("Object " + Connection.jsonToObject(data, Known.class).toString() + " has been added.\n");
-            }
-            else toClient.println("Object null can not be added.\n");
-        } catch (NullPointerException | JsonSyntaxException e) {
-            toClient.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.\n");
-            System.out.println(e.toString());
+    private void clear() {
+        if (collec.isEmpty())
+            System.out.println("There is nothing to remove, collection is empty.\n");
+        else {
+            collec.clear();
+            System.out.println("Collection has been cleared.\n");
         }
     }
 
-    private void clear() throws IOException {
-        if (collec.isEmpty())
-            toClient.println("There is nothing to remove, collection is empty.\n");
-        else {
-            collec.clear();
-            toClient.println("Collection has been cleared.\n");
+    private void remove_greater(String data) {
+        Person a = Server.jsonToObject(data, Known.class);
+        System.out.println(a.toString());
+        this.collec.removeIf(person -> a.compareTo(person) > 0);
+        System.out.println("Objects greater than given have been removed.");
+    }
+
+    private void addObject(String data) {
+        try {
+            this.collec.add(Server.jsonToObject(data, Known.class));
+            System.out.println("Object has been added.");
+        }catch (Exception e) {
+            System.out.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.");
+            e.printStackTrace();
+        }
+    }
+
+    private void showCollection() {
+        if (this.collec.isEmpty())
+            System.out.println("Collection is empty.");
+        for (Person person : this.collec) {
+            System.out.println(person.toString());
         }
     }
 
@@ -243,7 +170,7 @@ class Connection extends Thread {
             Writer writer = new FileWriter(file);
             //this.collec.forEach(person -> writer.write(Connection.objectToJson(person)));
             for (Person person: this.collec){
-                writer.write(Connection.objectToJson(person));
+                writer.write(Server.objectToJson(person));
             }
             writer.close();
             System.out.println("Collection has been saved.");
@@ -252,8 +179,104 @@ class Connection extends Thread {
             e.printStackTrace();
         }
     }
+}
 
-    public void giveCollection(){
+class ClientListening extends Thread {
+    private ServerSocket serverSocket;
+    private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
+
+    public ClientListening(SortedSet<Person> collec) {
+        this.collec = collec;
+        try {
+            serverSocket = new ServerSocket(4718, 1, InetAddress.getByName("localhost"));
+            System.out.println(serverSocket.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println("Server is now running.");
+        this.start();
+    }
+
+    public void run(){
+        System.out.println("Server is listening.");
+        while (true) {
+            try {
+                Socket client = serverSocket.accept();
+                Connection connec = new Connection(client, collec);
+            } catch (Exception e) {
+                System.out.println("Server is not listening.");
+                e.printStackTrace();
+            }
+        }
+    }
+}
+
+class Connection extends Thread {
+    private Socket client;
+    private BufferedReader fromClient;
+    private PrintStream toClient;
+    private SortedSet<Person> collec = Collections.synchronizedSortedSet(new TreeSet<Person>());
+
+    Connection(Socket client, SortedSet<Person> collec){
+        this.collec = collec;
+        this.client = client;
+        try {
+            fromClient = new BufferedReader(
+                    new InputStreamReader(client.getInputStream()));
+            toClient = new PrintStream(client.getOutputStream());
+        } catch (IOException e){
+            try{
+                client.close();
+            }catch (IOException ee){
+                ee.printStackTrace();
+            }
+            e.printStackTrace();
+        }
+        this.start();
+    }
+    public void run(){
+        toClient.println("You've connected to the server.\nUse command:\n" +
+                "\"show\" to see what's in th ecollection;\n\"describe\" to show the collection with descriptions.\n");
+        while(true) {
+            try {
+                String command = fromClient.readLine();
+                System.out.println("Command from client: " + command);
+                switch (command) {
+                    case "start":
+                        toClient.println("\n");
+                        break;
+                    case "quit":
+                        this.quit();
+                        break;
+                    case "show":
+                        this.giveCollection();
+                        break;
+                    default:
+                        toClient.println("\n");
+                }
+            } catch (IOException e) {
+                System.out.println("Connection with the client is lost.");
+                System.out.println(e.toString());
+                toClient.close();
+                try {
+                    fromClient.close();
+                    client.close();
+                } catch (IOException ee){
+                    System.out.println("Exception while trying to close.");
+                }
+                return;
+            }
+        }
+    }
+
+    private void quit() throws IOException {
+        fromClient.close();
+        toClient.close();
+        client.close();
+        System.out.println("Client has disconnected.");
+    }
+
+    private void giveCollection(){
         final ObjectOutputStream toClient;
         try {
             toClient = new ObjectOutputStream(this.toClient);
@@ -269,14 +292,6 @@ class Connection extends Thread {
             this.toClient.println("\n");
         } catch (IOException e){
             System.out.println("Can not write collection into stream.");
-        }
-    }
-
-    public void showCollection() {
-        if (this.collec.isEmpty())
-            System.out.println("Collection is empty.");
-        for (Person person : this.collec) {
-            System.out.println(person.toString());
         }
     }
 }

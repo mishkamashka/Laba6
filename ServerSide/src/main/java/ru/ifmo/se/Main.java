@@ -7,6 +7,7 @@ import ru.ifmo.se.enums.State;
 
 public class Main {
     public static void main(String[] args) {
-        Server.main();
+        Server a = new Server();
+        a.start();
     }
 }

@@ -10,7 +10,7 @@ import java.util.TreeSet;
 public class ClientApp {
     //Клиентский модуль должен запрашивать у сервера текущее состояние коллекции,
     //генерировать сюжет, выводить его на консоль и завершать работу.
-    Set<Person> collec = new TreeSet<>();
+    private Set<Person> collec = new TreeSet<>();
     private static SocketAddress clientSocket;
     private static SocketChannel channel = null;
     private static DataInput fromServer;
@@ -31,8 +31,18 @@ public class ClientApp {
             System.out.println("Can not create DataInput or DataOutput stream.");
             e.printStackTrace();
         }
+        try{
+            String from;
+            while (!((from = fromServer.readLine()).equals(""))) {
+                System.out.println(from);
+            }
+            System.out.println("End of getting from server.");
+        } catch (IOException e){
+            e.printStackTrace();
+        }
         sc = new Scanner(System.in);
         sc.useDelimiter("\n");
+        //this.getCollection();
         while (true){
             String command = sc.next();
             switch (command){
@@ -52,18 +62,15 @@ public class ClientApp {
                     this.quit();
                     break;
                 default:
-                    try{
-                        toServer.println(command);
-                    } catch (Exception e){
-                        e.printStackTrace();
-                    }
+                    toServer.println("start");
+                    this.help();
             }
             try{
                 String from;
                 while (!((from = fromServer.readLine()).equals(""))) {
                     System.out.println(from);
                 }
-                System.out.println("End of getting from server.");
+                //System.out.println("End of getting from server.");
             } catch (IOException e){
                 e.printStackTrace();
             }
@@ -74,6 +81,7 @@ public class ClientApp {
         ObjectInputStream fromClient;
         try{
             fromClient = new ObjectInputStream(channel.socket().getInputStream());
+            System.out.println("sdh");
         } catch (IOException e){
             System.out.println("Can not create ObjectInputStream.");
             return;
@@ -89,8 +97,13 @@ public class ClientApp {
         } catch (ClassNotFoundException e){
             System.out.println("Class not found while deserializing.");
         }
-
+        /*try{
+            fromClient.close();
+        } catch (IOException e){
+            System.out.println("Can not close stream");
+        }*/
     }
+
     private void showCollection() {
         if (this.collec.isEmpty())
             System.out.println("Collection is empty.");
@@ -127,13 +140,8 @@ public class ClientApp {
     }
 
     private void help(){
-        System.out.println("Commands:\nclear - clear the collection;\nload - load the collection again;" +
-                "\nshow - show the collection;\ndescribe - show the collection with descriptions;" +
-                "\nadd {element} - add new element to collection;\nremove_greater {element} - remove elements greater than given;" +
+        System.out.println("Commands:\nshow - show the collection;\ndescribe - show the collection with descriptions;" +
                 "\nquit - quit;\nhelp - get help;");
-        System.out.println("\nPattern for object Person input:\n{\"name\":\"Andy\",\"last_name\":\"Killins\",\"age\":45,\"steps_from_door\":0," +
-                "\"generalClothes\":[{\"type\":\"Jacket\",\"colour\":\"white\",\"patches\":[\"WHITE_PATCH\",\"BLACK_PATCH\"," +
-                "\"NONE\",\"NONE\",\"NONE\"],\"material\":\"NONE\"}],\"shoes\":[],\"accessories\":[],\"state\":\"NEUTRAL\"}");
         System.out.println("\nHow objects are compared:\nObject A is greater than B if it stands further from the door B does. (That's weird but that's the task.)");
     }
 }
