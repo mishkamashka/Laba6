@@ -43,14 +43,17 @@ class Connection extends Thread {
     private BufferedReader fromClient;
     private PrintStream toClient;
     private final String filename = System.getenv("FILENAME");
-    private final String currentdir = "C:\\files";
-    //private final String currentdir = System.getProperty("user.dir");
-    private final String filepath = currentdir + "\\" + filename;
-    //private final String filepath = currentdir + "/" + filename;
-    private File file = new File(filepath);
+    private final String currentdir = System.getProperty("user.dir");
+    private final String filepath;
+    private File file;
     private ReentrantLock locker = new ReentrantLock();
 
     Connection(Socket client){
+        if (currentdir.startsWith("/")) {
+            filepath = currentdir + "/" + filename;
+        } else
+            filepath = currentdir + "\\" + filename;
+        file = new File(filepath);
         this.client = client;
         try {
             fromClient = new BufferedReader(
@@ -111,7 +114,6 @@ class Connection extends Thread {
                     fromClient.close();
                     toClient.close();
                     client.close();
-                    System.out.println("Client has disconnected.");
                 } catch (IOException ee){
                     System.out.println("Exception while trying to close client's streams.");
                 }
