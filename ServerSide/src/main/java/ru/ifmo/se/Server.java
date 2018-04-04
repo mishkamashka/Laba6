@@ -85,10 +85,12 @@ class Connection extends Thread {
                         this.giveCollection();
                         break;
                     case "save":
-                        this.save();
+                        this.clear();
+                        this.getCollection();
+                        toClient.println("Collection has been saved on server.\n");
                         break;
                     case "qw":
-                        this.save();
+                        this.getCollection();
                     case "q":
                         this.quit();
                         break;
@@ -148,6 +150,32 @@ class Connection extends Thread {
         locker.unlock();
     }
 
+    private void getCollection(){
+        locker.lock();
+        final ObjectInputStream fromClient;
+        try{
+            fromClient = new ObjectInputStream(client.getInputStream());
+        } catch (IOException e){
+            System.out.println("Can not create ObjectInputStream.");
+            e.printStackTrace();
+            return;
+        }
+        Person person;
+        try{
+            while ((person = (Person)fromClient.readObject()) != null){
+                Server.collec.add(person);
+            }
+        } catch (IOException e) {
+            // выход из цикла через исключение(да, я в курсе, что это нехоршо наверное, хз как по-другому)
+            //e.printStackTrace();
+        } catch (ClassNotFoundException e){
+            System.out.println("Class not found while deserializing.");
+        } finally {
+            System.out.println("Collection has been updated by client.");
+            locker.unlock();
+        }
+    }
+
     private void quit() throws IOException {
         fromClient.close();
         toClient.close();
@@ -201,5 +229,9 @@ class Connection extends Thread {
         for (Person person : Server.collec) {
             System.out.println(person.toString());
         }
+    }
+
+    private void clear() {
+        Server.collec.clear();
     }
 }

@@ -65,7 +65,9 @@ public class ClientApp {
             switch (command) {
                 case "load":
                     toServer.println("data_request");
+                    this.clear();
                     this.load();
+                    this.gettingResponse();
                     break;
                 case "show":
                     this.show();
@@ -85,8 +87,13 @@ public class ClientApp {
                 case "help":
                     this.help();
                     break;
+                case "save":
+                    toServer.println(command);
+                    this.giveCollection();
+                    break;
                 case "qw":
                     toServer.println(command);
+                    this.giveCollection();
                     this.gettingResponse();
                     this.quit();
                     break;
@@ -106,9 +113,9 @@ public class ClientApp {
     }
 
     private void load(){
-        final ObjectInputStream fromClient;
+        final ObjectInputStream fromServer;
         try{
-            fromClient = new ObjectInputStream(channel.socket().getInputStream());
+            fromServer = new ObjectInputStream(channel.socket().getInputStream());
         } catch (IOException e){
             System.out.println("Can not create ObjectInputStream.");
             e.printStackTrace();
@@ -116,7 +123,7 @@ public class ClientApp {
         }
         Person person;
         try{
-            while ((person = (Person)fromClient.readObject()) != null){
+            while ((person = (Person)fromServer.readObject()) != null){
                 this.collec.add(person);
             }
         } catch (IOException e) {
@@ -125,8 +132,26 @@ public class ClientApp {
         } catch (ClassNotFoundException e){
             System.out.println("Class not found while deserializing.");
         }
-
     }
+
+    private void giveCollection(){
+        ObjectOutputStream toServer;
+        try {
+            toServer = new ObjectOutputStream(channel.socket().getOutputStream());
+        } catch (IOException e){
+            System.out.println("Can not create ObjectOutputStream.");
+            return;
+        }
+        try {
+            //Server.collec.forEach(person -> toClient.writeObject(person));
+            for (Person person: this.collec){
+                toServer.writeObject(person);
+            }
+        } catch (IOException e){
+            System.out.println("Can not write collection into stream.");
+        }
+    }
+
     private void show() {
         if (this.collec.isEmpty())
             System.out.println("Collection is empty.");
@@ -159,7 +184,9 @@ public class ClientApp {
             }
             System.out.println("End of getting from server.");
         } catch (IOException e){
+            System.out.println("The connection was lost.");
             e.printStackTrace();
+            System.exit(0);
         }
     }
 
@@ -185,10 +212,10 @@ public class ClientApp {
 
     private void clear() {
         if (collec.isEmpty())
-            System.out.println("There is nothing to remove, collection is empty.\n");
+            System.out.println("There is nothing to remove, collection is empty.");
         else {
             collec.clear();
-            System.out.println("Collection has been cleared.\n");
+            System.out.println("Collection has been cleared.");
         }
     }
 
