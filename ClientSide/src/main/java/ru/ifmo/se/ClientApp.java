@@ -235,10 +235,10 @@ public class ClientApp {
         System.out.println("Commands:\nclear - clear the collection;\nload - load the collection again;" +
                 "\nshow - show the collection;\ndescribe - show the collection with descriptions;" +
                 "\nadd {element} - add new element to collection;\nremove_greater {element} - remove elements greater than given;" +
-                "\nsave - save changes;\nq - quit without saving;\nqw - save and quit;\nhelp - get help;");
-        System.out.println("\nPattern for object Person input:\n{\"name\":\"Andy\",\"last_name\":\"Killins\",\"age\":45,\"steps_from_door\":0," +
-                "\"generalClothes\":[{\"type\":\"Jacket\",\"colour\":\"white\",\"patches\":[\"WHITE_PATCH\",\"BLACK_PATCH\"," +
-                "\"NONE\",\"NONE\",\"NONE\"],\"material\":\"NONE\"}],\"shoes\":[],\"accessories\":[],\"state\":\"NEUTRAL\"}");
-        System.out.println("\nHow objects are compared:\nObject A is greater than B if it stands further from the door B does. (That's weird but that's the task.)");
+                "\nsave - save changes on server;\nq - quit without saving;\nqw - save on server and quit;\nhelp - get help;\n" +
+                "save_file - save current server collection to file;\nload_file - load collection on server from file.");
+        System.out.println("\nPattern for object Person input:\n{\"name\":\"Andy\",\"steps_from_door\":0}");
+        System.out.println("\nHow objects are compared:\nObject A is greater than B if it stands further from the door B does. (That's weird but that's the task.)\n");
+        System.out.println("Collection is saved to file when server shuts down or \"save_file\" command.");
     }
 }
