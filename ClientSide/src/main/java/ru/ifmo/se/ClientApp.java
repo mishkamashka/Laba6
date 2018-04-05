@@ -20,37 +20,7 @@ public class ClientApp {
     private Scanner sc;
 
     public void main() {
-        try {
-            clientSocket = new InetSocketAddress(InetAddress.getByName("localhost"), 4718);
-            channel = SocketChannel.open(clientSocket);
-        } catch (IOException e){
-            //e.printStackTrace();
-        }
-        int i = 0;
-        while (channel == null) {
-            try {
-                Thread.sleep(1000);
-                channel = SocketChannel.open(clientSocket);
-            } catch (IOException e) {
-                if (i++ == 5){
-                    System.out.println("Server is not responding for a long time...");
-                }
-                if (i == 15){
-                    System.out.println("Server did not respond for too long. Try again later.");
-                    System.exit(0);
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        try {
-            fromServer = new DataInputStream(channel.socket().getInputStream());
-            toServer = new PrintStream(new DataOutputStream(channel.socket().getOutputStream()));
-        } catch (IOException e){
-            System.out.println("Can not create DataInput or DataOutput stream.");
-            e.printStackTrace();
-        }
-        this.gettingResponse();
+        this.connect();
         toServer.println("data_request");
         this.clear();
         this.load();
@@ -83,7 +53,7 @@ public class ClientApp {
                     this.addObject(data);
                     break;
                 case "remove_greater":
-                    this.remove_greater(data);
+                    this.removeGreater(data);
                     break;
                 case "clear":
                     this.clear();
@@ -115,6 +85,40 @@ public class ClientApp {
                     }
             }
         }
+    }
+
+    private void connect(){
+        try {
+            clientSocket = new InetSocketAddress(InetAddress.getByName("localhost"), 4718);
+            channel = SocketChannel.open(clientSocket);
+        } catch (IOException e){
+            //e.printStackTrace();
+        }
+        int i = 0;
+        while (channel == null) {
+            try {
+                Thread.sleep(1000);
+                channel = SocketChannel.open(clientSocket);
+            } catch (IOException e) {
+                if (i++ == 3){
+                    System.out.println("Server is not responding for a long time...");
+                }
+                if (i == 10){
+                    System.out.println("Server did not respond for too long. Try again later.");
+                    System.exit(0);
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            fromServer = new DataInputStream(channel.socket().getInputStream());
+            toServer = new PrintStream(new DataOutputStream(channel.socket().getOutputStream()));
+        } catch (IOException e){
+            System.out.println("Can not create DataInput or DataOutput stream.");
+            e.printStackTrace();
+        }
+        this.gettingResponse();
     }
 
     private void load(){
@@ -193,12 +197,12 @@ public class ClientApp {
             System.out.println("End of getting from server.");
         } catch (IOException e){
             System.out.println("The connection was lost.");
-            e.printStackTrace();
-            System.exit(0);
+            System.out.println("Trying to reconnect...");
+            this.connect();
         }
     }
 
-    private void remove_greater(String data) {
+    private void removeGreater(String data) {
         Person a = JsonConverter.jsonToObject(data, Known.class);
         System.out.println(a.toString());
         this.collec.removeIf(person -> a.compareTo(person) > 0);
