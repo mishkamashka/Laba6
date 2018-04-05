@@ -57,11 +57,15 @@ public class ClientApp {
         this.gettingResponse();
         sc = new Scanner(System.in);
         String command;
+        String input;
+        String[] buf;
         String data = "";
         while (true) {
-            command = sc.next();
-            if (sc.hasNext())
-                data = sc.next();
+            input = sc.nextLine();
+            buf = input.split(" ");
+            command = buf[0];
+            if (buf.length > 1)
+                data = buf[1];
             switch (command) {
                 case "load":
                     toServer.println("data_request");
@@ -90,6 +94,7 @@ public class ClientApp {
                 case "save":
                     toServer.println(command);
                     this.giveCollection();
+                    //this.gettingResponse();
                     break;
                 case "qw":
                     toServer.println(command);
@@ -117,8 +122,8 @@ public class ClientApp {
         try{
             fromServer = new ObjectInputStream(channel.socket().getInputStream());
         } catch (IOException e){
-            System.out.println("Can not create ObjectInputStream.");
-            e.printStackTrace();
+            System.out.println("Can not create ObjectInputStream: "+e.toString());
+            System.out.println("Just try again, that's pretty normal.");
             return;
         }
         Person person;
@@ -128,7 +133,7 @@ public class ClientApp {
             }
         } catch (IOException e) {
             // выход из цикла через исключение(да, я в курсе, что это нехоршо наверное, хз как по-другому)
-            //e.printStackTrace();
+            //e.printStackTrace();  StreamCorruptedException: invalid type code: 20
         } catch (ClassNotFoundException e){
             System.out.println("Class not found while deserializing.");
         }
@@ -147,6 +152,7 @@ public class ClientApp {
             for (Person person: this.collec){
                 toServer.writeObject(person);
             }
+            System.out.println("Collection has been sent to server.");
         } catch (IOException e){
             System.out.println("Can not write collection into stream.");
         }
@@ -178,9 +184,11 @@ public class ClientApp {
 
     private void gettingResponse(){
         try{
-            String from;
-            while (!((from = fromServer.readLine()).equals(""))) {
-                System.out.println(from);
+            Scanner sc = new Scanner(fromServer.readLine());
+            sc.useDelimiter("\n");
+            while (sc.hasNext()) {
+                System.out.println(sc.next());
+                sc = new Scanner(fromServer.readLine());
             }
             System.out.println("End of getting from server.");
         } catch (IOException e){

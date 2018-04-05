@@ -1,8 +1,5 @@
 package ru.ifmo.se;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -42,18 +39,14 @@ class Connection extends Thread {
     private Socket client;
     private BufferedReader fromClient;
     private PrintStream toClient;
-    private final String filename = System.getenv("FILENAME");
-    private final String currentdir = System.getProperty("user.dir");
-    private final String filepath;
-    private File file;
+    private final static String filename = System.getenv("FILENAME");
+    private final static String currentdir = System.getProperty("user.dir");
+    private static String filepath;
+    private static File file;
     private ReentrantLock locker = new ReentrantLock();
 
     Connection(Socket client){
-        if (currentdir.startsWith("/")) {
-            filepath = currentdir + "/" + filename;
-        } else
-            filepath = currentdir + "\\" + filename;
-        file = new File(filepath);
+        Connection.filemaker();
         this.client = client;
         try {
             fromClient = new BufferedReader(
@@ -69,6 +62,15 @@ class Connection extends Thread {
         }
         this.start();
     }
+
+    private static void filemaker(){
+        if (currentdir.startsWith("/")) {
+            filepath = currentdir + "/" + filename;
+        } else
+            filepath = currentdir + "\\" + filename;
+        file = new File(filepath);
+    }
+
     public void run(){
         try {
             this.load();
@@ -81,31 +83,35 @@ class Connection extends Thread {
             try {
                 String command = fromClient.readLine();
                 System.out.println("Command from client: " + command);
-                if (command == null)
-                    command = "";
-                switch (command) {
-                    case "data_request":
-                        this.giveCollection();
-                        break;
-                    case "save":
-                        this.clear();
-                        this.getCollection();
-                        toClient.println("Collection has been saved on server.\n");
-                        break;
-                    case "qw":
-                        this.getCollection();
-                    case "q":
-                        this.quit();
-                        break;
-                    case "load_file":
-                        this.load();
-                        toClient.println();
-                        break;
-                    default:
-                        toClient.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
-                                "\nload - load the collection again;\nadd {element} - add new element to collection;" +
-                                "\nremove_greater {element} - remove elements greater than given;\n" +
-                                "show - show the collection;\nquit - quit;\n");
+                try {
+                    switch (command) {
+                        case "data_request":
+                            this.giveCollection();
+                            break;
+                        case "save":
+                            this.clear();
+                            this.getCollection();
+                            break;
+                        case "qw":
+                            this.getCollection();
+                        case "q":
+                            this.quit();
+                            break;
+                        case "load_file":
+                            this.load();
+                            toClient.println();
+                            break;
+                        case "save_file":
+                            this.save();
+                            break;
+                        default:
+                            toClient.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
+                                    "\nload - load the collection again;\nadd {element} - add new element to collection;" +
+                                    "\nremove_greater {element} - remove elements greater than given;\n" +
+                                    "show - show the collection;\nquit - quit;\n");
+                    }
+                }catch (NullPointerException e){
+                    System.out.println("Null command received.");
                 }
             } catch (IOException e) {
                 System.out.println("Connection with the client is lost.");
@@ -158,8 +164,10 @@ class Connection extends Thread {
         try{
             fromClient = new ObjectInputStream(client.getInputStream());
         } catch (IOException e){
-            System.out.println("Can not create ObjectInputStream.");
-            e.printStackTrace();
+            System.out.println("Can not create ObjectInputStream: "+e.toString());
+            System.out.println("Just try again, that's pretty normal.");
+            toClient.println("Can not create ObjectInputStream on server side: "+e.toString());
+            toClient.println("Just try again, that's pretty normal.");
             return;
         }
         Person person;
@@ -167,7 +175,9 @@ class Connection extends Thread {
             while ((person = (Person)fromClient.readObject()) != null){
                 Server.collec.add(person);
             }
+            this.toClient.println("Collection has been saved on server.\n");
         } catch (IOException e) {
+            this.toClient.println("Collection has been saved on server.\n");
             // выход из цикла через исключение(да, я в курсе, что это нехоршо наверное, хз как по-другому)
             //e.printStackTrace();
         } catch (ClassNotFoundException e){
@@ -196,12 +206,28 @@ class Connection extends Thread {
             }
             writer.close();
             System.out.println("Collection has been saved.");
-            toClient.println("Collection has been saved.\n");
+            toClient.println("Collection has been saved to file.\n");
         } catch (IOException e) {
             System.out.println("Collection can not be saved.\nFile "+filename+" is not accessible: it does not exist or permission denied.");
             e.printStackTrace();
         }
         locker.unlock();
+    }
+
+    public static void saveOnQuit(){
+        try {
+            Writer writer = new FileWriter(file);
+            //
+            //Server.collec.forEach(person -> writer.write(Connection.objectToJson(person)));
+            for (Person person: Server.collec){
+                writer.write(JsonConverter.objectToJson(person));
+            }
+            writer.close();
+            System.out.println("Collection has been saved.");
+        } catch (IOException e) {
+            System.out.println("Collection can not be saved.\nFile "+filename+" is not accessible: it does not exist or permission denied.");
+            e.printStackTrace();
+        }
     }
 
     private void giveCollection(){
