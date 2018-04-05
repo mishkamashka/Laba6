@@ -8,6 +8,7 @@ import ru.ifmo.se.enums.State;
 public class Main {
     public static void main(String[] args) {
         Server a = new Server();
+        Runtime.getRuntime().addShutdownHook(new Thread(Connection::save));
         a.start();
     }
 }

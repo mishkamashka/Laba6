@@ -15,6 +15,7 @@ public class ClientApp {
     Set<Person> collec = new TreeSet<>();
     private static SocketAddress clientSocket;
     private static SocketChannel channel = null;
+    private static ObjectInputStream objectFromServer;
     private static DataInput fromServer;
     private static PrintStream toServer;
     private Scanner sc;
@@ -56,12 +57,10 @@ public class ClientApp {
         this.load();
         this.gettingResponse();
         sc = new Scanner(System.in);
+        sc.useDelimiter("\n");
         String command;
-        String data = "";
         while (true) {
             command = sc.next();
-            if (sc.hasNext())
-                data = sc.next();
             switch (command) {
                 case "load":
                     toServer.println("data_request");
@@ -70,36 +69,28 @@ public class ClientApp {
                     this.gettingResponse();
                     break;
                 case "show":
+                    //toServer.println("data_request");
+                    //this.clear();
+                    //this.load();
+                    //this.gettingResponse();
                     this.show();
                     break;
                 case "describe":
+                    //toServer.println("data_request");
+                    //this.clear();
+                    //this.load();
+                    //this.gettingResponse();
                     this.describe();
-                    break;
-                case "add":
-                    this.addObject(data);
-                    break;
-                case "remove_greater":
-                    this.remove_greater(data);
-                    break;
-                case "clear":
-                    this.clear();
                     break;
                 case "help":
                     this.help();
                     break;
-                case "save":
-                    toServer.println(command);
-                    this.giveCollection();
-                    break;
-                case "qw":
-                    toServer.println(command);
-                    this.giveCollection();
-                    this.gettingResponse();
-                    this.quit();
-                    break;
-                case "q":
+                case "quit":
                     toServer.println(command);
                     this.quit();
+                    break;
+                case "data_request":
+                    System.out.println();
                     break;
                 default:
                     try{
@@ -113,17 +104,17 @@ public class ClientApp {
     }
 
     private void load(){
-        final ObjectInputStream fromServer;
         try{
-            fromServer = new ObjectInputStream(channel.socket().getInputStream());
+            objectFromServer = new ObjectInputStream(channel.socket().getInputStream());
         } catch (IOException e){
             System.out.println("Can not create ObjectInputStream.");
-            e.printStackTrace();
+            System.out.println(e.toString());
+            System.out.println("That's okay, just try again.");
             return;
         }
         Person person;
         try{
-            while ((person = (Person)fromServer.readObject()) != null){
+            while ((person = (Person)objectFromServer.readObject()) != null){
                 this.collec.add(person);
             }
         } catch (IOException e) {
@@ -131,24 +122,6 @@ public class ClientApp {
             //e.printStackTrace();
         } catch (ClassNotFoundException e){
             System.out.println("Class not found while deserializing.");
-        }
-    }
-
-    private void giveCollection(){
-        ObjectOutputStream toServer;
-        try {
-            toServer = new ObjectOutputStream(channel.socket().getOutputStream());
-        } catch (IOException e){
-            System.out.println("Can not create ObjectOutputStream.");
-            return;
-        }
-        try {
-            //Server.collec.forEach(person -> toClient.writeObject(person));
-            for (Person person: this.collec){
-                toServer.writeObject(person);
-            }
-        } catch (IOException e){
-            System.out.println("Can not write collection into stream.");
         }
     }
 
@@ -188,26 +161,7 @@ public class ClientApp {
             e.printStackTrace();
             System.exit(0);
         }
-    }
-
-    private void remove_greater(String data) {
-        Person a = JsonConverter.jsonToObject(data, Known.class);
-        System.out.println(a.toString());
-        this.collec.removeIf(person -> a.compareTo(person) > 0);
-        System.out.println("Objects greater than given have been removed.\n");
-    }
-
-    private void addObject(String data) {
-        try {
-            if ((JsonConverter.jsonToObject(data, Known.class).getName() != null)) {
-                this.collec.add(JsonConverter.jsonToObject(data, Known.class));
-                System.out.println("Object " + JsonConverter.jsonToObject(data, Known.class).toString() + " has been added.\n");
-            }
-            else System.out.println("Object null can not be added.");
-        } catch (NullPointerException | JsonSyntaxException e) {
-            System.out.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.\n");
-            System.out.println(e.toString());
-        }
+        System.out.println();
     }
 
     private void clear() {
@@ -217,6 +171,7 @@ public class ClientApp {
             collec.clear();
             System.out.println("Collection has been cleared.");
         }
+        System.out.println();
     }
 
     private void help(){
@@ -227,6 +182,7 @@ public class ClientApp {
         System.out.println("\nPattern for object Person input:\n{\"name\":\"Andy\",\"last_name\":\"Killins\",\"age\":45,\"steps_from_door\":0," +
                 "\"generalClothes\":[{\"type\":\"Jacket\",\"colour\":\"white\",\"patches\":[\"WHITE_PATCH\",\"BLACK_PATCH\"," +
                 "\"NONE\",\"NONE\",\"NONE\"],\"material\":\"NONE\"}],\"shoes\":[],\"accessories\":[],\"state\":\"NEUTRAL\"}");
-        System.out.println("\nHow objects are compared:\nObject A is greater than B if it stands further from the door B does. (That's weird but that's the task.)");
+        System.out.println("\nHow objects are compared:\nObject A is greater than B if it stands further from the door than B does. (That's weird but that's the task.)");
+        System.out.println();
     }
 }

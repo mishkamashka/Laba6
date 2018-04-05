@@ -41,19 +41,17 @@ public class Server extends Thread {
 class Connection extends Thread {
     private Socket client;
     private BufferedReader fromClient;
-    private PrintStream toClient;
-    private final String filename = System.getenv("FILENAME");
-    private final String currentdir = System.getProperty("user.dir");
-    private final String filepath;
-    private File file;
-    private ReentrantLock locker = new ReentrantLock();
+    private static PrintStream toClient;
+    private static ObjectInputStream objectFromClient;
+    private static ObjectOutputStream objectToClient;
+    private static final String filename = System.getenv("FILENAME");
+    private static final String currentdir = System.getProperty("user.dir");
+    private static String filepath;
+    private static File file;
+    private static ReentrantLock locker = new ReentrantLock();
 
     Connection(Socket client){
-        if (currentdir.startsWith("/")) {
-            filepath = currentdir + "/" + filename;
-        } else
-            filepath = currentdir + "\\" + filename;
-        file = new File(filepath);
+        Connection.filemaker();
         this.client = client;
         try {
             fromClient = new BufferedReader(
@@ -69,6 +67,15 @@ class Connection extends Thread {
         }
         this.start();
     }
+
+    public static void filemaker(){
+        if (currentdir.startsWith("/")) {
+            filepath = currentdir + "/" + filename;
+        } else
+            filepath = currentdir + "\\" + filename;
+        file = new File(filepath);
+    }
+
     public void run(){
         try {
             this.load();
@@ -77,10 +84,18 @@ class Connection extends Thread {
         }
         System.out.println("Client " + client.toString() + " has connected to server.");
         toClient.println("You've connected to the server.\n");
+        String[] buf;
+        Scanner sc = new Scanner(fromClient);
+        sc.useDelimiter("\n");
         while(true) {
             try {
-                String command = fromClient.readLine();
-                System.out.println("Command from client: " + command);
+                String clientInput = fromClient.readLine();
+                System.out.println("Command from client: " + clientInput);
+                buf = clientInput.split(" ");
+                String command = buf[0];
+                String data = "";
+                if (buf.length > 1)
+                    data = buf[1];
                 if (command == null)
                     command = "";
                 switch (command) {
@@ -88,18 +103,21 @@ class Connection extends Thread {
                         this.giveCollection();
                         break;
                     case "save":
+                        this.save();
+                        toClient.println("Collection has been saved to file.\n");
+                        break;
+                    case "add":
+                        this.addObject(data);
+                        break;
+                    case "remove_greater":
+                        this.remove_greater(data);
+                        break;
+                    case "clear":
                         this.clear();
-                        this.getCollection();
-                        toClient.println("Collection has been saved on server.\n");
+                        toClient.println("Collection has been cleared.\n");
                         break;
-                    case "qw":
-                        this.getCollection();
-                    case "q":
+                    case "quit":
                         this.quit();
-                        break;
-                    case "load_file":
-                        this.load();
-                        toClient.println();
                         break;
                     default:
                         toClient.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
@@ -152,30 +170,29 @@ class Connection extends Thread {
         locker.unlock();
     }
 
-    private void getCollection(){
+    private void remove_greater(String data) {
         locker.lock();
-        final ObjectInputStream fromClient;
-        try{
-            fromClient = new ObjectInputStream(client.getInputStream());
-        } catch (IOException e){
-            System.out.println("Can not create ObjectInputStream.");
-            e.printStackTrace();
-            return;
-        }
-        Person person;
-        try{
-            while ((person = (Person)fromClient.readObject()) != null){
-                Server.collec.add(person);
+        Person a = JsonConverter.jsonToObject(data, Known.class);
+        System.out.println(a.toString());
+        Server.collec.removeIf(person -> a.compareTo(person) > 0);
+        toClient.println("Objects greater than given have been removed.\n");
+        locker.unlock();
+    }
+
+    private void addObject(String data) {
+        locker.lock();
+        try {
+            if ((JsonConverter.jsonToObject(data, Known.class).getName() != null)) {
+                Server.collec.add(JsonConverter.jsonToObject(data, Known.class));
+                toClient.println("Object " + JsonConverter.jsonToObject(data, Known.class).toString() + " has been added.\n");
             }
-        } catch (IOException e) {
-            // выход из цикла через исключение(да, я в курсе, что это нехоршо наверное, хз как по-другому)
-            //e.printStackTrace();
-        } catch (ClassNotFoundException e){
-            System.out.println("Class not found while deserializing.");
-        } finally {
-            System.out.println("Collection has been updated by client.");
-            locker.unlock();
+            else System.out.println("Object null can not be added.");
+        } catch (NullPointerException | JsonSyntaxException e) {
+            toClient.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.");
+            toClient.println(e.toString());
+            toClient.println();
         }
+        locker.unlock();
     }
 
     private void quit() throws IOException {
@@ -185,7 +202,7 @@ class Connection extends Thread {
         System.out.println("Client has disconnected.");
     }
 
-    private void save(){
+    protected static void save(){
         locker.lock();
         try {
             Writer writer = new FileWriter(file);
@@ -206,9 +223,8 @@ class Connection extends Thread {
 
     private void giveCollection(){
         locker.lock();
-        ObjectOutputStream toClient;
         try {
-            toClient = new ObjectOutputStream(this.toClient);
+            objectToClient = new ObjectOutputStream(toClient);
         } catch (IOException e){
             System.out.println("Can not create ObjectOutputStream.");
             return;
@@ -216,11 +232,17 @@ class Connection extends Thread {
         try {
             //Server.collec.forEach(person -> toClient.writeObject(person));
             for (Person person: Server.collec){
-                toClient.writeObject(person);
+                objectToClient.writeObject(person);
             }
-            this.toClient.println(" Collection copy has been loaded on client.\n");
+            toClient.println(" Collection copy has been loaded on client.\n");
         } catch (IOException e){
             System.out.println("Can not write collection into stream.");
+        }
+        try {
+            objectToClient.flush();
+        } catch (IOException e){
+            System.out.println("Connection was lost.");
+            System.exit(0);
         }
         locker.unlock();
     }
@@ -234,6 +256,8 @@ class Connection extends Thread {
     }
 
     private void clear() {
+        locker.lock();
         Server.collec.clear();
+        locker.unlock();
     }
 }
