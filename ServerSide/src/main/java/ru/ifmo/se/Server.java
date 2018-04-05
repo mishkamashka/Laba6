@@ -89,6 +89,7 @@ class Connection extends Thread {
         sc.useDelimiter("\n");
         while(true) {
             try {
+
                 String clientInput = fromClient.readLine();
                 System.out.println("Command from client: " + clientInput);
                 buf = clientInput.split(" ");
@@ -104,7 +105,7 @@ class Connection extends Thread {
                         break;
                     case "save":
                         this.save();
-                        toClient.println("Collection has been saved to file.\n");
+                        //toClient.println("Collection has been saved to file.\n");
                         break;
                     case "add":
                         this.addObject(data);
@@ -123,18 +124,19 @@ class Connection extends Thread {
                         toClient.println("Not valid command. Try one of those:\nhelp - get help;\nclear - clear the collection;" +
                                 "\nload - load the collection again;\nadd {element} - add new element to collection;" +
                                 "\nremove_greater {element} - remove elements greater than given;\n" +
-                                "show - show the collection;\nquit - quit;\n");
+                                "show - show the collection;\nquit - quit;");
+                        toClient.println();
                 }
             } catch (IOException e) {
                 System.out.println("Connection with the client is lost.");
                 System.out.println(e.toString());
-                try {
+                /*try {
                     fromClient.close();
                     toClient.close();
                     client.close();
                 } catch (IOException ee){
                     System.out.println("Exception while trying to close client's streams.");
-                }
+                }*/
                 return;
             }
         }
@@ -172,10 +174,18 @@ class Connection extends Thread {
 
     private void remove_greater(String data) {
         locker.lock();
-        Person a = JsonConverter.jsonToObject(data, Known.class);
-        System.out.println(a.toString());
-        Server.collec.removeIf(person -> a.compareTo(person) > 0);
-        toClient.println("Objects greater than given have been removed.\n");
+        try {
+            if (JsonConverter.jsonToObject(data, Known.class).getName() != null) {
+                Server.collec.removeIf(person -> JsonConverter.jsonToObject(data, Known.class).compareTo(person) > 0);
+                toClient.println("Objects greater than given have been removed.\n");
+            }
+            else toClient.println("Object can not be null.\n");
+        } catch (NullPointerException | JsonSyntaxException e) {
+            toClient.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.");
+            toClient.println(e.toString());
+            toClient.println();
+        }
+        toClient.flush();
         locker.unlock();
     }
 
@@ -186,7 +196,7 @@ class Connection extends Thread {
                 Server.collec.add(JsonConverter.jsonToObject(data, Known.class));
                 toClient.println("Object " + JsonConverter.jsonToObject(data, Known.class).toString() + " has been added.\n");
             }
-            else System.out.println("Object null can not be added.");
+            else toClient.println("Object null can not be added.\n");
         } catch (NullPointerException | JsonSyntaxException e) {
             toClient.println("Something went wrong. Check your object and try again. For example of json format see \"help\" command.");
             toClient.println(e.toString());
@@ -197,7 +207,7 @@ class Connection extends Thread {
 
     private void quit() throws IOException {
         fromClient.close();
-        toClient.close();
+        //toClient.close();
         client.close();
         System.out.println("Client has disconnected.");
     }

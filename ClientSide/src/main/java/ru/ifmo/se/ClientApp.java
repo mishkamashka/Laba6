@@ -151,9 +151,15 @@ public class ClientApp {
 
     private void gettingResponse(){
         try{
-            String from;
-            while (!((from = fromServer.readLine()).equals(""))) {
+            Scanner sc = new Scanner(fromServer.readLine());
+            sc.useDelimiter("\n");
+            /*while (!((from = fromServer.readLine()).equals(""))) {
                 System.out.println(from);
+            }
+            System.out.println("End of getting from server.");*/
+            while (sc.hasNext()) {
+                System.out.println(sc.next());
+                sc = new Scanner(fromServer.readLine());
             }
             System.out.println("End of getting from server.");
         } catch (IOException e){
