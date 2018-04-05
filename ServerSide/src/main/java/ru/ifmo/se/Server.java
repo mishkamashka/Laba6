@@ -1,7 +1,5 @@
 package ru.ifmo.se;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -92,26 +90,25 @@ class Connection extends Thread {
 
                 String clientInput = fromClient.readLine();
                 System.out.println("Command from client: " + clientInput);
+                if (clientInput == null)
+                    clientInput = "";
                 buf = clientInput.split(" ");
                 String command = buf[0];
                 String data = "";
                 if (buf.length > 1)
                     data = buf[1];
-                if (command == null)
-                    command = "";
                 switch (command) {
                     case "data_request":
                         this.giveCollection();
                         break;
                     case "save":
                         this.save();
-                        //toClient.println("Collection has been saved to file.\n");
                         break;
                     case "add":
                         this.addObject(data);
                         break;
                     case "remove_greater":
-                        this.remove_greater(data);
+                        this.removeGreater(data);
                         break;
                     case "clear":
                         this.clear();
@@ -130,13 +127,6 @@ class Connection extends Thread {
             } catch (IOException e) {
                 System.out.println("Connection with the client is lost.");
                 System.out.println(e.toString());
-                /*try {
-                    fromClient.close();
-                    toClient.close();
-                    client.close();
-                } catch (IOException ee){
-                    System.out.println("Exception while trying to close client's streams.");
-                }*/
                 return;
             }
         }
@@ -172,7 +162,7 @@ class Connection extends Thread {
         locker.unlock();
     }
 
-    private void remove_greater(String data) {
+    private void removeGreater(String data) {
         locker.lock();
         try {
             if (JsonConverter.jsonToObject(data, Known.class).getName() != null) {
@@ -208,7 +198,7 @@ class Connection extends Thread {
     private void quit() throws IOException {
         fromClient.close();
         //toClient.close();
-        client.close();
+        //client.close();
         System.out.println("Client has disconnected.");
     }
 
@@ -252,7 +242,6 @@ class Connection extends Thread {
             objectToClient.flush();
         } catch (IOException e){
             System.out.println("Connection was lost.");
-            System.exit(0);
         }
         locker.unlock();
     }

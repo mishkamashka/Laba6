@@ -1,7 +1,5 @@
 package ru.ifmo.se;
 
-import com.google.gson.JsonSyntaxException;
-
 import java.io.*;
 import java.net.*;
 import java.nio.channels.SocketChannel;
@@ -69,17 +67,9 @@ public class ClientApp {
                     this.gettingResponse();
                     break;
                 case "show":
-                    //toServer.println("data_request");
-                    //this.clear();
-                    //this.load();
-                    //this.gettingResponse();
                     this.show();
                     break;
                 case "describe":
-                    //toServer.println("data_request");
-                    //this.clear();
-                    //this.load();
-                    //this.gettingResponse();
                     this.describe();
                     break;
                 case "help":
@@ -140,12 +130,12 @@ public class ClientApp {
     private void quit(){
         sc.close();
         toServer.close();
-        try {
+        /*try {
             channel.close();
         } catch (IOException e){
             System.out.println("Can not close channel.");
             e.printStackTrace();
-        }
+        }*/
         System.exit(0);
     }
 
@@ -153,10 +143,6 @@ public class ClientApp {
         try{
             Scanner sc = new Scanner(fromServer.readLine());
             sc.useDelimiter("\n");
-            /*while (!((from = fromServer.readLine()).equals(""))) {
-                System.out.println(from);
-            }
-            System.out.println("End of getting from server.");*/
             while (sc.hasNext()) {
                 System.out.println(sc.next());
                 sc = new Scanner(fromServer.readLine());
