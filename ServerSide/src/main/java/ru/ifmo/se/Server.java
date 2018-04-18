@@ -175,17 +175,14 @@ class Connection extends Thread {
             while ((person = (Person)fromClient.readObject()) != null){
                 Server.collec.add(person);
             }
-            this.toClient.println("Collection has been saved on server.\n");
         } catch (IOException e) {
-            this.toClient.println("Collection has been saved on server.\n");
+            System.out.println("Collection has been updated by client.");
             // выход из цикла через исключение(да, я в курсе, что это нехоршо наверное, хз как по-другому)
             //e.printStackTrace();
         } catch (ClassNotFoundException e){
             System.out.println("Class not found while deserializing.");
-        } finally {
-            System.out.println("Collection has been updated by client.");
-            locker.unlock();
         }
+        locker.unlock();
     }
 
     private void quit() throws IOException {

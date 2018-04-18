@@ -8,6 +8,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ClientApp {
     //Клиентский модуль должен запрашивать у сервера текущее состояние коллекции,
@@ -18,6 +19,7 @@ public class ClientApp {
     private static DataInput fromServer;
     private static PrintStream toServer;
     private Scanner sc;
+    private ReentrantLock locker = new ReentrantLock();
 
     public void main() {
         this.connect();
@@ -88,6 +90,7 @@ public class ClientApp {
     }
 
     private void connect(){
+        locker.lock();
         try {
             clientSocket = new InetSocketAddress(InetAddress.getByName("localhost"), 4718);
             channel = SocketChannel.open(clientSocket);
@@ -118,12 +121,14 @@ public class ClientApp {
             System.out.println("Can not create DataInput or DataOutput stream.");
             e.printStackTrace();
         }
+        locker.unlock();
         this.gettingResponse();
     }
 
     private void load(){
         final ObjectInputStream fromServer;
         try{
+            DataInputStream dataInputStream = new DataInputStream(channel.socket().getInputStream());
             fromServer = new ObjectInputStream(channel.socket().getInputStream());
         } catch (IOException e){
             System.out.println("Can not create ObjectInputStream: "+e.toString());
@@ -145,8 +150,10 @@ public class ClientApp {
 
     private void giveCollection(){
         ObjectOutputStream toServer;
+        OutputStream outputStream;
         try {
-            toServer = new ObjectOutputStream(channel.socket().getOutputStream());
+            outputStream = channel.socket().getOutputStream();
+            toServer = new ObjectOutputStream(outputStream);
         } catch (IOException e){
             System.out.println("Can not create ObjectOutputStream.");
             return;
@@ -156,6 +163,7 @@ public class ClientApp {
             for (Person person: this.collec){
                 toServer.writeObject(person);
             }
+            outputStream.write(64);
             System.out.println("Collection has been sent to server.");
         } catch (IOException e){
             System.out.println("Can not write collection into stream.");
